@@ -9,9 +9,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #add8e6, #b0e0e6); /* Azul suave */
+            background: linear-gradient(135deg, #add8e6, #b0e0e6);
             height: 100vh;
             margin: 0;
             padding: 20px;
@@ -21,6 +21,7 @@
             margin-bottom: 20px;
             text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
             font-size: 2.5em;
+            text-align: center;
         }
         #tools {
             background-color: rgba(255, 255, 255, 0.8);
@@ -35,12 +36,12 @@
         canvas {
             border: 3px solid #4a90e2;
             background-color: #fff;
-            cursor: url('https://cdn.custom-cursor.com/db/7600/32/stain-of-paint-cursor.png'), auto; /* Cursor personalizado */
+            cursor: url('https://cdn.custom-cursor.com/db/7600/32/stain-of-paint-cursor.png'), auto;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            width: 100%; /* Ajusta a largura para 100% */
-            height: 80vh; /* Ajusta a altura para 80% da altura da tela */
-            max-width: 800px; /* Limita a largura máxima */
+            width: 100%;
+            height: 80vh;
+            max-width: 800px;
         }
         button, select, input {
             margin: 5px;
@@ -107,33 +108,36 @@
         const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d'),
               color = document.getElementById('color'), size = document.getElementById('size'),
               shape = document.getElementById('shape'), clear = document.getElementById('clear');
-        
-        // Definindo o tamanho do canvas com base na largura e altura do elemento pai
+
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
 
         let isDrawing = false, startX, startY, shapes = [], currentPath = [];
 
-        canvas.onmousedown = e => {
-            isDrawing = true; 
-            startX = e.offsetX; 
-            startY = e.offsetY; 
+        // Funções para iniciar e finalizar o desenho
+        const startDrawing = (x, y) => {
+            isDrawing = true;
+            startX = x;
+            startY = y;
             currentPath = [[startX, startY]];
             ctx.beginPath();
             ctx.moveTo(startX, startY);
         };
 
-        canvas.onmouseup = e => {
-            isDrawing = false; 
+        const finishDrawing = (e) => {
+            isDrawing = false;
             if (shape.value === 'free') {
                 shapes.push({ type: 'free', path: currentPath, color: color.value, size: size.value });
             } else {
                 shapes.push({ type: shape.value, x1: startX, y1: startY, x2: e.offsetX, y2: e.offsetY, color: color.value, size: size.value });
             }
-            redraw(); 
+            redraw();
         };
 
-        canvas.onmousemove = e => { 
+        // Adiciona eventos de mouse
+        canvas.onmousedown = e => startDrawing(e.offsetX, e.offsetY);
+        canvas.onmouseup = e => finishDrawing(e);
+        canvas.onmousemove = e => {
             if (isDrawing) {
                 if (shape.value === 'free') {
                     currentPath.push([e.offsetX, e.offsetY]);
@@ -147,6 +151,37 @@
                 }
             }
         };
+
+        // Adiciona eventos de toque
+        canvas.addEventListener('touchstart', e => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            startDrawing(touch.clientX - rect.left, touch.clientY - rect.top);
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('touchend', e => {
+            finishDrawing(e.changedTouches[0]);
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            if (isDrawing) {
+                if (shape.value === 'free') {
+                    currentPath.push([touch.clientX - rect.left, touch.clientY - rect.top]);
+                    ctx.lineWidth = size.value;
+                    ctx.strokeStyle = color.value;
+                    ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                    ctx.stroke();
+                } else {
+                    redraw();
+                    drawPreview(touch);
+                }
+            }
+            e.preventDefault();
+        });
 
         clear.onclick = () => { shapes = []; redraw(); };
 
@@ -174,19 +209,14 @@
             } else if (s.type === 'line') { ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke(); }
             else if (s.type === 'rectangle') { ctx.strokeRect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1); }
             else if (s.type === 'circle') { ctx.beginPath(); ctx.arc(s.x1, s.y1, Math.sqrt((s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2), 0, Math.PI * 2); ctx.stroke(); }
-            else if (s.type === 'triangle') { ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.lineTo(s.x1, s.y2); ctx.closePath(); ctx.stroke(); }
+            else if (s.type === 'triangle') {
+                ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.lineTo(s.x1, s.y2); ctx.closePath(); ctx.stroke();
+            }
         };
 
         const redraw = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             shapes.forEach(drawShape);
-        };
-        
-        // Atualiza o tamanho do canvas ao redimensionar a janela
-        window.onresize = () => {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
-            redraw(); // Redesenha as formas
         };
     </script>
 </body>
