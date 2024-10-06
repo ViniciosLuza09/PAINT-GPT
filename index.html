@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint Do Vinicios</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #add8e6, #b0e0e6); /* Azul suave */
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
+            font-size: 2.5em;
+        }
+        #tools {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        canvas {
+            border: 3px solid #4a90e2;
+            background-color: #fff;
+            cursor: url('https://cdn.custom-cursor.com/db/7600/32/stain-of-paint-cursor.png'), auto; /* Cursor personalizado */
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            width: 100%; /* Ajusta a largura para 100% */
+            height: 80vh; /* Ajusta a altura para 80% da altura da tela */
+            max-width: 800px; /* Limita a largura máxima */
+        }
+        button, select, input {
+            margin: 5px;
+            padding: 10px;
+            border: 2px solid #4a90e2;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.2s, border-color 0.3s;
+            font-size: 16px;
+            background-color: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            outline: none;
+        }
+        button:hover, select:hover, input:hover {
+            background-color: #4a90e2;
+            color: white;
+            border-color: #2980b9;
+            transform: scale(1.05);
+        }
+        input[type="color"] {
+            padding: 0;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #ddd;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4a90e2;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Paint Do Vinicios</h1>
+    <div id="tools">
+        <input type="color" id="color" value="#000000">
+        <input type="range" id="size" min="1" max="10" value="5">
+        <select id="shape">
+            <option value="free">Livre</option>
+            <option value="line">Linha</option>
+            <option value="rectangle">Retângulo</option>
+            <option value="circle">Círculo</option>
+            <option value="triangle">Triângulo</option>
+        </select>
+        <button id="clear">Limpar</button>
+    </div>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d'),
+              color = document.getElementById('color'), size = document.getElementById('size'),
+              shape = document.getElementById('shape'), clear = document.getElementById('clear');
+        
+        // Definindo o tamanho do canvas com base na largura e altura do elemento pai
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+
+        let isDrawing = false, startX, startY, shapes = [], currentPath = [];
+
+        canvas.onmousedown = e => {
+            isDrawing = true; 
+            startX = e.offsetX; 
+            startY = e.offsetY; 
+            currentPath = [[startX, startY]];
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+        };
+
+        canvas.onmouseup = e => {
+            isDrawing = false; 
+            if (shape.value === 'free') {
+                shapes.push({ type: 'free', path: currentPath, color: color.value, size: size.value });
+            } else {
+                shapes.push({ type: shape.value, x1: startX, y1: startY, x2: e.offsetX, y2: e.offsetY, color: color.value, size: size.value });
+            }
+            redraw(); 
+        };
+
+        canvas.onmousemove = e => { 
+            if (isDrawing) {
+                if (shape.value === 'free') {
+                    currentPath.push([e.offsetX, e.offsetY]);
+                    ctx.lineWidth = size.value;
+                    ctx.strokeStyle = color.value;
+                    ctx.lineTo(e.offsetX, e.offsetY);
+                    ctx.stroke();
+                } else {
+                    redraw();
+                    drawPreview(e);
+                }
+            }
+        };
+
+        clear.onclick = () => { shapes = []; redraw(); };
+
+        const drawPreview = e => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            redraw();
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = size.value; ctx.strokeStyle = color.value;
+            const x2 = e.offsetX, y2 = e.offsetY;
+            if (shape.value === 'line') { ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x2, y2); ctx.stroke(); }
+            else if (shape.value === 'rectangle') { ctx.strokeRect(startX, startY, x2 - startX, y2 - startY); }
+            else if (shape.value === 'circle') { ctx.beginPath(); ctx.arc(startX, startY, Math.sqrt((x2 - startX) ** 2 + (y2 - startY) ** 2), 0, Math.PI * 2); ctx.stroke(); }
+            else if (shape.value === 'triangle') {
+                ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x2, y2); ctx.lineTo(startX, y2); ctx.closePath(); ctx.stroke();
+            }
+        };
+
+        const drawShape = (s) => {
+            ctx.lineWidth = s.size; ctx.strokeStyle = s.color; ctx.setLineDash([]);
+            if (s.type === 'free') {
+                ctx.beginPath();
+                ctx.moveTo(s.path[0][0], s.path[0][1]);
+                s.path.forEach(point => ctx.lineTo(point[0], point[1]));
+                ctx.stroke();
+            } else if (s.type === 'line') { ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke(); }
+            else if (s.type === 'rectangle') { ctx.strokeRect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1); }
+            else if (s.type === 'circle') { ctx.beginPath(); ctx.arc(s.x1, s.y1, Math.sqrt((s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2), 0, Math.PI * 2); ctx.stroke(); }
+            else if (s.type === 'triangle') { ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.lineTo(s.x1, s.y2); ctx.closePath(); ctx.stroke(); }
+        };
+
+        const redraw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            shapes.forEach(drawShape);
+        };
+        
+        // Atualiza o tamanho do canvas ao redimensionar a janela
+        window.onresize = () => {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            redraw(); // Redesenha as formas
+        };
+    </script>
+</body>
+</html>
